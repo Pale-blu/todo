@@ -1,5 +1,5 @@
 import React from 'react';
-import { TodoScreen } from './screens/TodoScreen.js';
+import TodoScreen from './screens/TodoScreen';
 
 export default function App() {
   return <TodoScreen />;

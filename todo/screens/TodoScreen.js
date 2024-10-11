@@ -1,24 +1,54 @@
-// screens/TodoScreen.js
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
     TextInput,
     FlatList,
     TouchableOpacity,
-    StyleSheet,
     StatusBar,
+    Modal,
+    Pressable,
+    Image,
+    Animated
 } from 'react-native';
+import styles from '../style/styles'; // Import the styles from the new styles.js file
 
 export default function TodoScreen() {
     const [todos, setTodos] = useState([]);
-    const [newTodo, setNewTodo] = useState('');
+    const [newTodoTitle, setNewTodoTitle] = useState('');
+    const [newTodoDetails, setNewTodoDetails] = useState('');
+    const [taskDetailVisible, setTaskDetailVisible] = useState(false);
+    const [selectedTask, setSelectedTask] = useState(null);
+    const [isAddingTask, setIsAddingTask] = useState(false);
+
+    // Animated scale values for Add and Close buttons
+    const scaleAnimAdd = useRef(new Animated.Value(1)).current;
+    const scaleAnimClose = useRef(new Animated.Value(1)).current;
+
+    // Function to handle the scaling effect
+    const handleButtonPressIn = (anim) => {
+        Animated.spring(anim, {
+            toValue: 0.95, // Scale down slightly
+            useNativeDriver: true,
+        }).start();
+    };
+
+    const handleButtonPressOut = (anim, callback) => {
+        Animated.spring(anim, {
+            toValue: 1, // Scale back to original size
+            useNativeDriver: true,
+        }).start(() => {
+            if (callback) callback(); // Call the function after the animation completes
+        });
+    };
 
     // Function to add a new task
     const addTodo = () => {
-        if (newTodo.trim()) {
-            setTodos([...todos, { key: Math.random().toString(), text: newTodo.trim() }]);
-            setNewTodo('');
+        if (newTodoTitle.trim()) {
+            setTodos([...todos, { key: Math.random().toString(), title: newTodoTitle.trim(), details: newTodoDetails.trim() }]);
+            setNewTodoTitle('');
+            setNewTodoDetails('');
+            setIsAddingTask(false); // Close add task popup
         }
     };
 
@@ -27,25 +57,22 @@ export default function TodoScreen() {
         setTodos(todos.filter((todo) => todo.key !== key));
     };
 
+    // Show task details in modal
+    const showTaskDetails = (task) => {
+        setSelectedTask(task);
+        setTaskDetailVisible(true);
+    };
+
     return (
         <View style={styles.container}>
             {/* Status Bar for better UI on dark background */}
-            <StatusBar barStyle="light-content" backgroundColor="#101010" />
+            <StatusBar barStyle="light-content" backgroundColor="#121212" />
 
             {/* App Title */}
             <Text style={styles.title}>Todo List</Text>
 
-            {/* Input Field */}
-            <TextInput
-                style={styles.input}
-                placeholder="Add a new task"
-                placeholderTextColor="#6B7280"
-                value={newTodo}
-                onChangeText={(text) => setNewTodo(text)}
-            />
-
             {/* Add Task Button */}
-            <TouchableOpacity style={styles.addButton} onPress={addTodo}>
+            <TouchableOpacity style={styles.addTaskButton} onPress={() => setIsAddingTask(true)}>
                 <Text style={styles.addButtonText}>Add Task</Text>
             </TouchableOpacity>
 
@@ -55,81 +82,95 @@ export default function TodoScreen() {
                 data={todos}
                 renderItem={({ item }) => (
                     <View style={styles.todoItem}>
-                        <Text style={styles.todoText}>{item.text}</Text>
+                        <TouchableOpacity style={{ flex: 1 }} onPress={() => showTaskDetails(item)}>
+                            <Text style={styles.todoText}>{item.title}</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity onPress={() => removeTodo(item.key)}>
-                            <Text style={styles.deleteButton}>🗑️</Text>
+                            <Image
+                                source={{ uri: 'https://cdn-icons-png.flaticon.com/512/1828/1828843.png' }} // Dustbin favicon
+                                style={styles.deleteButton}
+                            />
                         </TouchableOpacity>
                     </View>
                 )}
                 ListEmptyComponent={<Text style={styles.emptyText}>No tasks yet. Add some!</Text>}
             />
+
+            {/* Modal for Adding Task */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={isAddingTask}
+                onRequestClose={() => setIsAddingTask(false)}
+            >
+                <View style={styles.modalBackground}>
+                    <View style={styles.modalContainer}>
+                        <Text style={styles.modalTitle}>Add New Task</Text>
+
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Title"
+                            placeholderTextColor="#888"
+                            value={newTodoTitle}
+                            onChangeText={(text) => setNewTodoTitle(text)}
+                        />
+                        <TextInput
+                            style={[styles.input, { height: 100 }]} // Adjusted the height to make the details textbox longer
+                            placeholder="Details"
+                            placeholderTextColor="#888"
+                            value={newTodoDetails}
+                            onChangeText={(text) => setNewTodoDetails(text)}
+                            multiline
+                        />
+
+                        {/* Add Button with Animation */}
+                        <Animated.View style={{ transform: [{ scale: scaleAnimAdd }] }}>
+                            <Pressable
+                                style={styles.transparentButtonWithBg}
+                                onPressIn={() => handleButtonPressIn(scaleAnimAdd)}
+                                onPressOut={() => handleButtonPressOut(scaleAnimAdd, addTodo)}
+                            >
+                                <Text style={styles.transparentButtonText}>Add</Text>
+                            </Pressable>
+                        </Animated.View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Modal for Task Details */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={taskDetailVisible}
+                onRequestClose={() => setTaskDetailVisible(false)}
+            >
+                <View style={styles.modalBackground}>
+                    <View style={styles.modalContainer}>
+                        <Text style={styles.modalTitle}>Task Details</Text>
+
+                        {/* Display Title */}
+                        <Text style={styles.taskDetailTitle}>
+                            {selectedTask ? selectedTask.title : ''}
+                        </Text>
+
+                        {/* Display Details */}
+                        <Text style={styles.taskDetailDescription}>
+                            {selectedTask ? selectedTask.details : ''}
+                        </Text>
+
+                        {/* Close Button with Animation */}
+                        <Animated.View style={{ transform: [{ scale: scaleAnimClose }] }}>
+                            <Pressable
+                                style={styles.transparentButton}
+                                onPressIn={() => handleButtonPressIn(scaleAnimClose)}
+                                onPressOut={() => handleButtonPressOut(scaleAnimClose, () => setTaskDetailVisible(false))}
+                            >
+                                <Text style={styles.transparentButtonText}>Close</Text>
+                            </Pressable>
+                        </Animated.View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#101010', // ChatGPT's dark background
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#E5E7EB', // Off-white text
-        marginBottom: 20,
-        alignSelf: 'center',
-    },
-    input: {
-        height: 50,
-        borderColor: '#303030',
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        color: '#E5E7EB', // Off-white text
-        backgroundColor: '#181818',
-        marginBottom: 10,
-        fontSize: 16,
-    },
-    addButton: {
-        backgroundColor: '#10B981', // Emerald color
-        paddingVertical: 15,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    addButtonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    todoList: {
-        flex: 1,
-    },
-    todoItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: '#181818',
-        padding: 15,
-        borderRadius: 8,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: '#303030',
-    },
-    todoText: {
-        color: '#E5E7EB', // Off-white text
-        fontSize: 16,
-        flexShrink: 1, // Allows text to wrap if too long
-    },
-    deleteButton: {
-        color: '#EF4444', // Red color for delete button
-        fontSize: 18,
-    },
-    emptyText: {
-        color: '#6B7280', // Grey color for empty state
-        fontSize: 16,
-        textAlign: 'center',
-        marginTop: 50,
-    },
-});
